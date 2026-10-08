@@ -13,7 +13,7 @@ public class Main {
 
         System.out.println("Accidentes de Madrid 2025");
 
-        Path fichero = Path.of("data/2025_Accidentalidad.csv");
+        Path fichero = Path.of("../../../data/2025_Accidentalidad.csv");
 
         DateTimeFormatter formatoFecha = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
@@ -25,15 +25,7 @@ public class Main {
                     .skip(1)
                     .map(linea -> {
 
-                        String[] datos = linea.split(";", -1);
-
-                        if (datos.length != 19){
-                            System.out.println("Expediente: [" + datos[0] + "]");
-                            System.out.println("COLUMNAS: " + datos.length);
-                            System.out.println("SEXO: [" + datos[12] + "]");
-                            System.out.println("EDAD: [" + datos[11] + "]");
-                        }
-
+                        String[] datos = separarCSV(linea);
 
                         return new Accidente(
                                 //Cada indice es la columna
@@ -68,13 +60,7 @@ public class Main {
             System.out.println();
             System.out.println("2. Número de accidentes agrupados por sexo:");
 
-
-            accidentes.stream()
-                    .map(Accidente::getSexo)
-                    .distinct()
-                    .forEach(System.out::println);
-
-            /*Map<String, Long> accidentesPorSexo = accidentes.stream()
+            Map<String, Long> accidentesPorSexo = accidentes.stream()
                     .filter(accidente -> accidente.getSexo() != null)
                     .collect(Collectors.groupingBy(
                             Accidente::getSexo,
@@ -91,12 +77,88 @@ public class Main {
                     System.out.println(
                             sexo + ": " + cantidad + " accidentes"
                     )
-            );*/
+            );
+
+
+            //3.- Número de accidentes agrupados por meses
+            System.out.println();
+            System.out.println("3. Número de accidentes agrupados por meses:");
+
+            Map<Integer, Long> accidentesPorMes = accidentes.stream()
+                    .collect(Collectors.groupingBy(
+                            accidente -> accidente.getFecha().getMonthValue(),
+                            Collectors.mapping(
+                                    Accidente::getNumExpediente,
+                                    Collectors.collectingAndThen(
+                                            Collectors.toSet(),
+                                            conjunto -> (long) conjunto.size()
+                                    )
+                            )
+                    ));
+
+                accidentesPorMes.forEach((mes, cantidad) ->
+                    System.out.println(
+                            "Mes " + mes + ": " + cantidad + " accidentes"
+                    )
+                );
+
+                //4.- Accidentes donde haya habido atropellos a personas
+                System.out.println();
+                System.out.println("4. Accidentes donde haya habido atropellos a personas:");
+
+                accidentes.stream()
+                    .filter(accidente -> accidente.getTipoAccidente() != null)
+                    .filter(accidente -> accidente.getTipoAccidente().contains("Atropello a persona"))
+                    .map(Accidente::getNumExpediente)
+                    .distinct()
+                    .forEach(System.out::println);
+                    
+
+                //Numero total de accidentes a personas 
+                long totalAtropellos = accidentes.stream()
+                    .filter(accidente -> accidente.getTipoAccidente() != null)
+                    .filter(accidente -> accidente.getTipoAccidente().contains("Atropello a persona"))
+                    .map(Accidente::getNumExpediente)
+                    .distinct()
+                    .count();
+                    System.out.println("Total de accidentes a personas: " + totalAtropellos);
+
+
+
 
 
         } catch (IOException e) {
             System.out.println("Error al leer el fichero: " + e.getMessage());
         }
 
+
     }
+
+//Método para separar una línea de CSV en campos, considerando comillas y punto y coma como separador   
+private static String[] separarCSV(String linea) {
+
+    List<String> campos = new java.util.ArrayList<>();
+    StringBuilder campo = new StringBuilder();
+    boolean dentroComillas = false;
+
+    for (int i = 0; i < linea.length(); i++) {
+
+        char caracter = linea.charAt(i);
+
+        if (caracter == '"') {
+            dentroComillas = !dentroComillas;
+        } else if (caracter == ';' && !dentroComillas) {
+            campos.add(campo.toString());
+            campo.setLength(0);
+        } else {
+            campo.append(caracter);
+        }
+    }
+
+    campos.add(campo.toString());
+
+    return campos.toArray(new String[0]);
+}
+
+
 }
